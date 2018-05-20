@@ -15,10 +15,12 @@
 
 from __future__ import print_function
 
+import dateutil
 import os
 import pkg_resources
 import sys
 import uuid
+import re
 
 import six
 from six.moves.urllib import parse
@@ -26,6 +28,9 @@ import prettytable
 
 from cinderclient import exceptions
 from oslo_utils import encodeutils
+
+from datetime import datetime
+from dateutil import parser
 
 
 def arg(*args, **kwargs):
@@ -90,6 +95,36 @@ def _print(pt, order):
         print(encodeutils.safe_encode(pt.get_string(sortby=order)))
 
 
+def parse_date(string_data):
+    """Parses a date-like input string into a timezone aware Python
+    datetime.
+    """
+
+    if not isinstance(string_data, six.string_types):
+        return string_data
+
+    pattern = r'(\d{4}-\d{2}-\d{2}[T ])?\d{2}:\d{2}:\d{2}(\.\d{6})?Z?'
+
+    def convert_date(matchobj):
+        formats = ["%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%d %H:%M:%S.%f",
+                   "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S",
+                   "%Y-%m-%dT%H:%M:%SZ", "%H:%M:%S"]
+        datestring = matchobj.group(0)
+        if datestring:
+            for format in formats:
+                try:
+                    datetime.strptime(datestring, format)
+                    datestring += "+0000"
+                    parsed = parser.parse(datestring)
+                    converted = parsed.astimezone(dateutil.tz.tzlocal())
+                    return datetime.strftime(converted, format)
+                except Exception:
+                    pass
+        return datestring
+
+    return re.sub(pattern, convert_date, string_data)
+
+
 def print_list(objs, fields, exclude_unavailable=False, formatters=None,
                sortby_index=0):
     '''Prints a list of objects.
@@ -114,7 +149,9 @@ def print_list(objs, fields, exclude_unavailable=False, formatters=None,
             if field in removed_fields:
                 continue
             if field in formatters:
-                row.append(formatters[field](o))
+                data = formatters[field](o)
+                data = parse_date(data)
+                row.append(data)
             else:
                 if field in mixed_case_fields:
                     field_name = field.replace(' ', '_')
@@ -132,6 +169,7 @@ def print_list(objs, fields, exclude_unavailable=False, formatters=None,
                     data = '-'
                 if isinstance(data, six.string_types) and "\r" in data:
                     data = data.replace("\r", " ")
+                data = parse_date(data)
                 row.append(data)
         rows.append(row)
 
@@ -216,6 +254,7 @@ def print_dict(d, property="Property", formatters=None):
                 r[1] = _pretty_format_dict(r[1])
         if isinstance(r[1], six.string_types) and "\r" in r[1]:
             r[1] = r[1].replace("\r", " ")
+        r[1] = parse_date(r[1])
         pt.add_row(r)
     _print(pt, property)
 

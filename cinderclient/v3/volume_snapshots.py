@@ -12,6 +12,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2014 Wind River Systems, Inc.
+#
 
 """Volume snapshot interface (v3 extension)."""
 
@@ -29,6 +32,10 @@ class Snapshot(base.Resource):
     def delete(self, force=False):
         """Delete this snapshot."""
         return self.manager.delete(self, force)
+
+    def force_delete(self):
+        """Force delete this snapshot ignoring its current state."""
+        self.manager.force_delete(self)
 
     def update(self, **kwargs):
         """Update the name or description for this snapshot."""
@@ -73,6 +80,10 @@ class Snapshot(base.Resource):
     def unmanage(self, snapshot):
         """Unmanage a snapshot."""
         self.manager.unmanage(snapshot)
+
+    def export(self):
+        """Export this snapshot."""
+        return self.manager.export(self)
 
 
 class SnapshotManager(base.ManagerWithFind):
@@ -135,6 +146,13 @@ class SnapshotManager(base.ManagerWithFind):
             return self._action('os-force_delete', snapshot)
         else:
             return self._delete("/snapshots/%s" % base.getid(snapshot))
+
+    def force_delete(self, snapshot):
+        """Force delete a snapshot ignoring its current state.
+
+        :param snapshot: The :class:`Snapshot` to force delete.
+        """
+        return self._action('os-force_delete', base.getid(snapshot))
 
     def update(self, snapshot, **kwargs):
         """Update the name or description for a snapshot.
@@ -223,3 +241,11 @@ class SnapshotManager(base.ManagerWithFind):
     def unmanage(self, snapshot):
         """Unmanage a snapshot."""
         return self._action('os-unmanage', snapshot, None)
+
+    def export(self, snapshot):
+        """Export the snapshot to a file.
+
+        :param snapshot: The :class:`Snapshot`.
+        """
+        return self._action('wrs-snapshot:os-export_snapshot',
+                            snapshot)

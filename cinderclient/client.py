@@ -162,6 +162,7 @@ class SessionClient(adapter.LegacyJsonAdapter):
 
     def request(self, *args, **kwargs):
         kwargs.setdefault('headers', kwargs.get('headers', {}))
+        kwargs['headers']['wrs-header'] = 'true'
         api_versions.update_headers(kwargs["headers"], self.api_version)
         kwargs.setdefault('authenticated', False)
 
@@ -358,6 +359,7 @@ class HTTPClient(object):
         kwargs.setdefault('headers', kwargs.get('headers', {}))
         kwargs['headers']['User-Agent'] = self.USER_AGENT
         kwargs['headers']['Accept'] = 'application/json'
+        kwargs['headers']['wrs-header'] = 'true'
 
         if osprofiler_web:
             kwargs['headers'].update(osprofiler_web.get_trace_id_headers())
@@ -401,6 +403,7 @@ class HTTPClient(object):
             if not self.management_url or not self.auth_token:
                 self.authenticate()
             kwargs.setdefault('headers', {})['X-Auth-Token'] = self.auth_token
+            kwargs['headers']['wrs-header'] = 'true'
             if self.projectid:
                 kwargs['headers']['X-Auth-Project-Id'] = self.projectid
             try:

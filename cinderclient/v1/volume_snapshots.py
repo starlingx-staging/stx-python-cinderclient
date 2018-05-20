@@ -12,6 +12,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2014 Wind River Systems, Inc.
+#
+
 
 """
 Volume snapshot interface (1.1 extension).
@@ -35,6 +39,12 @@ class Snapshot(base.Resource):
         Delete this snapshot.
         """
         self.manager.delete(self)
+
+    def force_delete(self):
+        """
+        Force delete this snapshot ignoring its current state.
+        """
+        self.manager.force_delete(self)
 
     def update(self, **kwargs):
         """
@@ -65,6 +75,10 @@ class Snapshot(base.Resource):
     def update_all_metadata(self, metadata):
         """Update_all metadata of this snapshot."""
         return self.manager.update_all_metadata(self, metadata)
+
+    def export(self):
+        """Export this snapshot."""
+        return self.manager.export(self)
 
 
 class SnapshotManager(base.ManagerWithFind):
@@ -124,6 +138,14 @@ class SnapshotManager(base.ManagerWithFind):
         """
         self._delete("/snapshots/%s" % base.getid(snapshot))
 
+    def force_delete(self, snapshot):
+        """
+        Force delete a snapshot ignoring its current state.
+
+        :param snapshot: The :class:`Snapshot` to force delete.
+        """
+        return self._action('os-force_delete', base.getid(snapshot))
+
     def update(self, snapshot, **kwargs):
         """
         Update the display_name or display_description for a snapshot.
@@ -181,3 +203,11 @@ class SnapshotManager(base.ManagerWithFind):
         body = {'metadata': metadata}
         return self._update("/snapshots/%s/metadata" % base.getid(snapshot),
                             body)
+
+    def export(self, snapshot):
+        """Export the snapshot to a file.
+
+        :param snapshot: The :class:`Snapshot`.
+        """
+        return self._action('wrs-snapshot:os-export_snapshot',
+                            snapshot)

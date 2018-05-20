@@ -12,6 +12,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+#
+# Copyright (c) 2014 Wind River Systems, Inc.
+#
+
 
 """
 Volume interface (1.1 extension).
@@ -131,6 +135,14 @@ class Volume(base.Resource):
             read-only access mode.
         """
         self.manager.update_readonly_flag(self, read_only)
+
+    def export(self):
+        """Export a volume to a file."""
+        return self.manager.export(self)
+
+    def import_volume(self, file_name):
+        """Import a volume from a file."""
+        return self.manager.import_volume(self, file_name)
 
 
 class VolumeManager(base.ManagerWithFind):
@@ -426,3 +438,23 @@ class VolumeManager(base.ManagerWithFind):
         return self._action('os-set_bootable',
                             base.getid(volume),
                             {'bootable': flag})
+
+    def export(self, volume):
+        """
+        Export volume to a file.
+
+        :param volume: The :class:`Volume` to export.
+        """
+        return self._action('wrs-volume:os-volume_export',
+                            volume)
+
+    def import_volume(self, volume, file_name):
+        """
+        Import volume from a file.
+
+        :param volume: The :class:`Volume` to import.
+        :param file_name: The file to import.
+        """
+        return self._action('wrs-volume:os-volume_import',
+                            volume,
+                            {'file_name': file_name})
