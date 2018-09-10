@@ -60,7 +60,6 @@ class AuthenticateAgainstKeystoneTests(utils.TestCase):
                 'User-Agent': cs.client.USER_AGENT,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'wrs-header': 'true',
             }
             body = {
                 'auth': {
@@ -134,7 +133,6 @@ class AuthenticateAgainstKeystoneTests(utils.TestCase):
                 'User-Agent': cs.client.USER_AGENT,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'wrs-header': 'true',
             }
             body = {
                 'auth': {
@@ -237,7 +235,6 @@ class AuthenticateAgainstKeystoneTests(utils.TestCase):
                 'User-Agent': cs.client.USER_AGENT,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'wrs-header': 'true',
             }
             body = {
                 'auth': {
@@ -289,8 +286,7 @@ class AuthenticationTests(utils.TestCase):
                 'X-Auth-User': 'username',
                 'X-Auth-Key': 'password',
                 'X-Auth-Project-Id': 'project_id',
-                'User-Agent': cs.client.USER_AGENT,
-                'wrs-header': 'true',
+                'User-Agent': cs.client.USER_AGENT
             }
             mock_request.assert_called_with(
                 "GET",

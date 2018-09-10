@@ -12,9 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-#
-# Copyright (c) 2014 Wind River Systems, Inc.
-#
 
 """Volume interface (v3 extension)."""
 from cinderclient.apiclient import base as common_base
@@ -51,14 +48,6 @@ class Volume(volumes.Volume):
     def revert_to_snapshot(self, snapshot):
         """Revert a volume to a snapshot."""
         self.manager.revert_to_snapshot(self, snapshot)
-
-    def export(self):
-        """Export a volume to a file."""
-        return self.manager.export(self)
-
-    def import_volume(self, file_name):
-        """Import a volume from a file."""
-        return self.manager.import_volume(self, file_name)
 
 
 class VolumeManager(volumes.VolumeManager):
@@ -232,23 +221,3 @@ class VolumeManager(volumes.VolumeManager):
                                    search_opts=options)
 
         return self._get(url, None)
-
-    def export(self, volume):
-        """
-        Export volume to a file.
-
-        :param volume: The :class:`Volume` to export.
-        """
-        return self._action('wrs-volume:os-volume_export',
-                            volume)
-
-    def import_volume(self, volume, file_name):
-        """
-        Import volume from a file.
-
-        :param volume: The :class:`Volume` to import.
-        :param file_name: The file to import.
-        """
-        return self._action('wrs-volume:os-volume_import',
-                            volume,
-                            {'file_name': file_name})

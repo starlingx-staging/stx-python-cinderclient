@@ -12,9 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-#
-# Copyright (c) 2014 Wind River Systems, Inc.
-#
 
 """Volume snapshot interface (v3 extension)."""
 
@@ -80,10 +77,6 @@ class Snapshot(base.Resource):
     def unmanage(self, snapshot):
         """Unmanage a snapshot."""
         self.manager.unmanage(snapshot)
-
-    def export(self):
-        """Export this snapshot."""
-        return self.manager.export(self)
 
 
 class SnapshotManager(base.ManagerWithFind):
@@ -241,11 +234,3 @@ class SnapshotManager(base.ManagerWithFind):
     def unmanage(self, snapshot):
         """Unmanage a snapshot."""
         return self._action('os-unmanage', snapshot, None)
-
-    def export(self, snapshot):
-        """Export the snapshot to a file.
-
-        :param snapshot: The :class:`Snapshot`.
-        """
-        return self._action('wrs-snapshot:os-export_snapshot',
-                            snapshot)

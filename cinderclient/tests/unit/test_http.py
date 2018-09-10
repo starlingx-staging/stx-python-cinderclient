@@ -105,8 +105,7 @@ class ClientTest(utils.TestCase):
             headers = {"X-Auth-Token": "token",
                        "X-Auth-Project-Id": "project_id",
                        "User-Agent": cl.USER_AGENT,
-                       'Accept': 'application/json',
-                       'wrs-header': 'true', }
+                       'Accept': 'application/json', }
             mock_request.assert_called_with(
                 "GET",
                 "http://example.com/hi",
@@ -129,8 +128,7 @@ class ClientTest(utils.TestCase):
                        "X-Auth-Project-Id": "project_id",
                        "X-OpenStack-Request-ID": global_id,
                        "User-Agent": cl.USER_AGENT,
-                       'Accept': 'application/json',
-                       'wrs-header': 'true', }
+                       'Accept': 'application/json', }
             mock_request.assert_called_with(
                 "GET",
                 "http://example.com/hi",
@@ -300,8 +298,7 @@ class ClientTest(utils.TestCase):
                 "X-Auth-Project-Id": "project_id",
                 "Content-Type": "application/json",
                 'Accept': 'application/json',
-                "User-Agent": cl.USER_AGENT,
-                'wrs-header': 'true',
+                "User-Agent": cl.USER_AGENT
             }
             mock_request.assert_called_with(
                 "POST",
@@ -339,8 +336,7 @@ class ClientTest(utils.TestCase):
             headers = {
                 "Content-Type": "application/json",
                 'Accept': 'application/json',
-                "User-Agent": cl.USER_AGENT,
-                'wrs-header': 'true',
+                "User-Agent": cl.USER_AGENT
             }
             data = {
                 "auth": {

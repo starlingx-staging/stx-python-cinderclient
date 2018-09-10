@@ -12,9 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-#
-# Copyright (c) 2014 Wind River Systems, Inc.
-#
 
 
 """
@@ -75,10 +72,6 @@ class Snapshot(base.Resource):
     def update_all_metadata(self, metadata):
         """Update_all metadata of this snapshot."""
         return self.manager.update_all_metadata(self, metadata)
-
-    def export(self):
-        """Export this snapshot."""
-        return self.manager.export(self)
 
 
 class SnapshotManager(base.ManagerWithFind):
@@ -203,11 +196,3 @@ class SnapshotManager(base.ManagerWithFind):
         body = {'metadata': metadata}
         return self._update("/snapshots/%s/metadata" % base.getid(snapshot),
                             body)
-
-    def export(self, snapshot):
-        """Export the snapshot to a file.
-
-        :param snapshot: The :class:`Snapshot`.
-        """
-        return self._action('wrs-snapshot:os-export_snapshot',
-                            snapshot)
