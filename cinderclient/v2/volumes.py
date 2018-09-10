@@ -12,9 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-#
-#  Copyright (c) 2013-2018 Wind River Systems, Inc.
-#
 
 """Volume interface (v2 extension)."""
 
@@ -651,25 +648,3 @@ class VolumeManager(base.ManagerWithFind):
             query_string = "?detail=True"
 
         return self._get('/scheduler-stats/get_pools%s' % query_string, None)
-
-    # WRS extension
-    def export(self, volume):
-        """
-        Export volume to a file.
-
-        :param volume: The :class:`Volume` to export.
-        """
-        return self._action('wrs-volume:os-volume_export',
-                            volume)
-
-    # WRS extension
-    def import_volume(self, volume, file_name):
-        """
-        Import volume from a file.
-
-        :param volume: The :class:`Volume` to import.
-        :param file_name: The file to import.
-        """
-        return self._action('wrs-volume:os-volume_import',
-                            volume,
-                            {'file_name': file_name})

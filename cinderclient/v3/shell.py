@@ -13,9 +13,6 @@
 # implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Copyright (c) 2014 Wind River Systems, Inc.
-#
 
 
 from __future__ import print_function
@@ -2017,48 +2014,3 @@ def do_service_get_log(cs, args):
                                             args.prefix)
     columns = ('Binary', 'Host', 'Prefix', 'Level')
     utils.print_list(log_levels, columns)
-
-
-@utils.arg('volume',
-           metavar='<volume>',
-           help='Name or ID of the volume to export')
-def do_export(cs, args):
-    """Export volume to a file."""
-    volume = utils.find_volume(cs, args.volume)
-    updated_volume = volume.export()
-    utils.print_dict(updated_volume[1]['wrs-volume:os-volume_export'])
-
-
-@utils.arg('file_name',
-           metavar='<file-name>',
-           help='Name of the file to import')
-@utils.arg('--file_name',
-           help=argparse.SUPPRESS)
-def do_import(cs, args):
-    """Import a volume from a file."""
-
-    # Parse the volume ID from the filename which is in this format:
-    #   volume-<id>-<timestamp>.tgz
-    # For example:
-    #   volume-3a2cae29-850d-4445-b9ae-03865080b915-20140821-162819.tgz
-    if (args.file_name.find("volume-") != 0 or
-        args.file_name.rfind(".tgz") == -1 or
-            len(args.file_name) < 28):
-        raise exceptions.CommandError(
-            "Invalid filename - volume files must have the following format: "
-            "volume-<id>-<timestamp>.tgz")
-
-    volume_id = args.file_name[7:-20]
-    volume = utils.find_volume(cs, volume_id)
-    updated_volume = volume.import_volume(args.file_name)
-    utils.print_dict(updated_volume[1]['wrs-volume:os-volume_import'])
-
-
-@utils.arg('snapshot',
-           metavar='<snapshot>',
-           help='Name or ID of the snapshot to export')
-def do_snapshot_export(cs, args):
-    """Export a snapshot to a file."""
-    snapshot = _find_volume_snapshot(cs, args.snapshot)
-    updated_snapshot = snapshot.export()
-    utils.print_dict(updated_snapshot[1]['wrs-snapshot:os-export_snapshot'])
