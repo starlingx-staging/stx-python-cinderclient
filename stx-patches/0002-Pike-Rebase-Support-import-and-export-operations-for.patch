@@ -1,0 +1,377 @@
+From 9f5a4fdcb882dd91351a319d616bf1e6cc6b63b4 Mon Sep 17 00:00:00 2001
+From: Ovidiu Poncea <ovidiu.poncea@windriver.com>
+Date: Thu, 2 Jul 2015 20:58:14 +0300
+Subject: [PATCH 2/9] Pike Rebase: Support import and export operations for LVM
+ based volumes
+
+Support import and export operations for LVM based volumes
+
+This commit adds new cinder import, export and snapshot_export
+commands to allow LVM based volumes to be backed up and
+restored. The work to support Ceph based volumes will come in
+a later commit.
+
+CinderClient REST API - Proper Handling of Extensions
+
+Client code: To support the new windriver specific aliases;
+wrs-volume and wrs-snapshot
+
+Related:
+ - Newton commits: (CGCS_DEV_0027) f8a7812
+ - Mitaka commits: (CGCS_DEV_0019) 6aae223
+                   (CGCS_DEV_0019_squash) 6aae223
+ - Kilo commit: was bitbake patches (volume_backup.patch and
+                correct_wrs_alias.patch)
+ 
+(cherry picked from commit 6aae223ca84faf4ee2dc4531189e42cc12c4c4b7)
+Signed-off-by: Robert Church <robert.church@windriver.com>
+
+Conflicts:
+	cinderclient/v3/shell.py
+	cinderclient/v3/volumes.py
+
+Removed utils.service_type decorator
+---
+ cinderclient/v1/shell.py            | 51 +++++++++++++++++++++++++++++++++++
+ cinderclient/v1/volume_snapshots.py | 20 ++++++++++++++
+ cinderclient/v1/volumes.py          | 36 +++++++++++++++++++++++++
+ cinderclient/v3/shell.py            | 53 +++++++++++++++++++++++++++++++++++++
+ cinderclient/v3/volume_snapshots.py | 19 +++++++++++++
+ cinderclient/v3/volumes.py          | 35 ++++++++++++++++++++++++
+ 6 files changed, 214 insertions(+)
+
+diff --git a/cinderclient/v1/shell.py b/cinderclient/v1/shell.py
+index 59535ab..6c47dcb 100644
+--- a/cinderclient/v1/shell.py
++++ b/cinderclient/v1/shell.py
+@@ -15,6 +15,14 @@
+ # implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
++#
++# Copyright (c) 2014 Wind River Systems, Inc.
++#
++#
++#
++#
++#
++
+ 
+ from __future__ import print_function
+ 
+@@ -1434,3 +1442,46 @@ def do_set_bootable(cs, args):
+     cs.volumes.set_bootable(volume,
+                             strutils.bool_from_string(args.bootable,
+                                                       strict=True))
++
++
++@utils.arg('volume',
++           metavar='<volume>',
++           help='Name or ID of the volume to export')
++def do_export(cs, args):
++    """Export volume to a file."""
++    volume = utils.find_volume(cs, args.volume)
++    updated_volume = volume.export()
++    utils.print_dict(updated_volume[1]['wrs-volume:os-volume_export'])
++
++
++@utils.arg('file_name',
++           metavar='<file-name>',
++           help='Name of the file to import')
++def do_import(cs, args):
++    """Import a volume from a file."""
++
++    # Parse the volume ID from the filename which is in this format:
++    #   volume-<id>-<timestamp>.tgz
++    # For example:
++    #   volume-3a2cae29-850d-4445-b9ae-03865080b915-20140821-162819.tgz
++    if (args.file_name.find("volume-") != 0 or
++        args.file_name.rfind(".tgz") == -1 or
++            len(args.file_name) < 28):
++        raise exceptions.CommandError(
++            "Invalid filename - volume files must have the following format: "
++            "volume-<id>-<timestamp>.tgz")
++
++    volume_id = args.file_name[7:-20]
++    volume = utils.find_volume(cs, volume_id)
++    updated_volume = volume.import_volume(args.file_name)
++    utils.print_dict(updated_volume[1]['wrs-volume:os-volume_import'])
++
++
++@utils.arg('snapshot',
++           metavar='<snapshot>',
++           help='Name or ID of the snapshot to export')
++def do_snapshot_export(cs, args):
++    """Export a snapshot to a file."""
++    snapshot = _find_volume_snapshot(cs, args.snapshot)
++    updated_snapshot = snapshot.export()
++    utils.print_dict(updated_snapshot[1]['wrs-snapshot:os-export_snapshot'])
+diff --git a/cinderclient/v1/volume_snapshots.py b/cinderclient/v1/volume_snapshots.py
+index b7840bd..5c13aa1 100644
+--- a/cinderclient/v1/volume_snapshots.py
++++ b/cinderclient/v1/volume_snapshots.py
+@@ -12,6 +12,14 @@
+ #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ #    License for the specific language governing permissions and limitations
+ #    under the License.
++#
++# Copyright (c) 2014 Wind River Systems, Inc.
++#
++#
++#
++#
++#
++
+ 
+ """
+ Volume snapshot interface (1.1 extension).
+@@ -66,6 +74,10 @@ class Snapshot(base.Resource):
+         """Update_all metadata of this snapshot."""
+         return self.manager.update_all_metadata(self, metadata)
+ 
++    def export(self):
++        """Export this snapshot."""
++        return self.manager.export(self)
++
+ 
+ class SnapshotManager(base.ManagerWithFind):
+     """
+@@ -181,3 +193,11 @@ class SnapshotManager(base.ManagerWithFind):
+         body = {'metadata': metadata}
+         return self._update("/snapshots/%s/metadata" % base.getid(snapshot),
+                             body)
++
++    def export(self, snapshot):
++        """Export the snapshot to a file.
++
++        :param snapshot: The :class:`Snapshot`.
++        """
++        return self._action('wrs-snapshot:os-export_snapshot',
++                            snapshot)
+diff --git a/cinderclient/v1/volumes.py b/cinderclient/v1/volumes.py
+index 699c4ea..8555a86 100644
+--- a/cinderclient/v1/volumes.py
++++ b/cinderclient/v1/volumes.py
+@@ -12,6 +12,14 @@
+ #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ #    License for the specific language governing permissions and limitations
+ #    under the License.
++#
++# Copyright (c) 2014 Wind River Systems, Inc.
++#
++#
++#
++#
++#
++
+ 
+ """
+ Volume interface (1.1 extension).
+@@ -132,6 +140,14 @@ class Volume(base.Resource):
+         """
+         self.manager.update_readonly_flag(self, read_only)
+ 
++    def export(self):
++        """Export a volume to a file."""
++        return self.manager.export(self)
++
++    def import_volume(self, file_name):
++        """Import a volume from a file."""
++        return self.manager.import_volume(self, file_name)
++
+ 
+ class VolumeManager(base.ManagerWithFind):
+     """
+@@ -426,3 +442,23 @@ class VolumeManager(base.ManagerWithFind):
+         return self._action('os-set_bootable',
+                             base.getid(volume),
+                             {'bootable': flag})
++
++    def export(self, volume):
++        """
++        Export volume to a file.
++
++        :param volume: The :class:`Volume` to export.
++        """
++        return self._action('wrs-volume:os-volume_export',
++                            volume)
++
++    def import_volume(self, volume, file_name):
++        """
++        Import volume from a file.
++
++        :param volume: The :class:`Volume` to import.
++        :param file_name: The file to import.
++        """
++        return self._action('wrs-volume:os-volume_import',
++                            volume,
++                            {'file_name': file_name})
+diff --git a/cinderclient/v3/shell.py b/cinderclient/v3/shell.py
+index f47b83c..876546f 100644
+--- a/cinderclient/v3/shell.py
++++ b/cinderclient/v3/shell.py
+@@ -13,6 +13,14 @@
+ # implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
++#
++# Copyright (c) 2014 Wind River Systems, Inc.
++#
++#
++#
++#
++#
++
+ 
+ from __future__ import print_function
+ 
+@@ -1991,3 +1999,48 @@ def do_service_get_log(cs, args):
+                                             args.prefix)
+     columns = ('Binary', 'Host', 'Prefix', 'Level')
+     utils.print_list(log_levels, columns)
++
++
++@utils.arg('volume',
++           metavar='<volume>',
++           help='Name or ID of the volume to export')
++def do_export(cs, args):
++    """Export volume to a file."""
++    volume = utils.find_volume(cs, args.volume)
++    updated_volume = volume.export()
++    utils.print_dict(updated_volume[1]['wrs-volume:os-volume_export'])
++
++
++@utils.arg('file_name',
++           metavar='<file-name>',
++           help='Name of the file to import')
++@utils.arg('--file_name',
++           help=argparse.SUPPRESS)
++def do_import(cs, args):
++    """Import a volume from a file."""
++
++    # Parse the volume ID from the filename which is in this format:
++    #   volume-<id>-<timestamp>.tgz
++    # For example:
++    #   volume-3a2cae29-850d-4445-b9ae-03865080b915-20140821-162819.tgz
++    if (args.file_name.find("volume-") != 0 or
++        args.file_name.rfind(".tgz") == -1 or
++            len(args.file_name) < 28):
++        raise exceptions.CommandError(
++            "Invalid filename - volume files must have the following format: "
++            "volume-<id>-<timestamp>.tgz")
++
++    volume_id = args.file_name[7:-20]
++    volume = utils.find_volume(cs, volume_id)
++    updated_volume = volume.import_volume(args.file_name)
++    utils.print_dict(updated_volume[1]['wrs-volume:os-volume_import'])
++
++
++@utils.arg('snapshot',
++           metavar='<snapshot>',
++           help='Name or ID of the snapshot to export')
++def do_snapshot_export(cs, args):
++    """Export a snapshot to a file."""
++    snapshot = _find_volume_snapshot(cs, args.snapshot)
++    updated_snapshot = snapshot.export()
++    utils.print_dict(updated_snapshot[1]['wrs-snapshot:os-export_snapshot'])
+diff --git a/cinderclient/v3/volume_snapshots.py b/cinderclient/v3/volume_snapshots.py
+index 2fafe4b..999ec56 100644
+--- a/cinderclient/v3/volume_snapshots.py
++++ b/cinderclient/v3/volume_snapshots.py
+@@ -12,6 +12,13 @@
+ #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ #    License for the specific language governing permissions and limitations
+ #    under the License.
++#
++# Copyright (c) 2014 Wind River Systems, Inc.
++#
++#
++#
++#
++#
+ 
+ """Volume snapshot interface (v3 extension)."""
+ 
+@@ -74,6 +81,10 @@ class Snapshot(base.Resource):
+         """Unmanage a snapshot."""
+         self.manager.unmanage(snapshot)
+ 
++    def export(self):
++        """Export this snapshot."""
++        return self.manager.export(self)
++
+ 
+ class SnapshotManager(base.ManagerWithFind):
+     """Manage :class:`Snapshot` resources."""
+@@ -223,3 +234,11 @@ class SnapshotManager(base.ManagerWithFind):
+     def unmanage(self, snapshot):
+         """Unmanage a snapshot."""
+         return self._action('os-unmanage', snapshot, None)
++
++    def export(self, snapshot):
++        """Export the snapshot to a file.
++
++        :param snapshot: The :class:`Snapshot`.
++        """
++        return self._action('wrs-snapshot:os-export_snapshot',
++                            snapshot)
+diff --git a/cinderclient/v3/volumes.py b/cinderclient/v3/volumes.py
+index 2e4eadc..8e6c30c 100644
+--- a/cinderclient/v3/volumes.py
++++ b/cinderclient/v3/volumes.py
+@@ -12,6 +12,13 @@
+ #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ #    License for the specific language governing permissions and limitations
+ #    under the License.
++#
++# Copyright (c) 2014 Wind River Systems, Inc.
++#
++#
++#
++#
++#
+ 
+ """Volume interface (v3 extension)."""
+ from cinderclient.apiclient import base as common_base
+@@ -49,6 +56,14 @@ class Volume(volumes.Volume):
+         """Revert a volume to a snapshot."""
+         self.manager.revert_to_snapshot(self, snapshot)
+ 
++    def export(self):
++        """Export a volume to a file."""
++        return self.manager.export(self)
++
++    def import_volume(self, file_name):
++        """Import a volume from a file."""
++        return self.manager.import_volume(self, file_name)
++
+ 
+ class VolumeManager(volumes.VolumeManager):
+     resource_class = Volume
+@@ -221,3 +236,23 @@ class VolumeManager(volumes.VolumeManager):
+                                    search_opts=options)
+ 
+         return self._get(url, None)
++
++    def export(self, volume):
++        """
++        Export volume to a file.
++
++        :param volume: The :class:`Volume` to export.
++        """
++        return self._action('wrs-volume:os-volume_export',
++                            volume)
++
++    def import_volume(self, volume, file_name):
++        """
++        Import volume from a file.
++
++        :param volume: The :class:`Volume` to import.
++        :param file_name: The file to import.
++        """
++        return self._action('wrs-volume:os-volume_import',
++                            volume,
++                            {'file_name': file_name})
+-- 
+2.7.4
+

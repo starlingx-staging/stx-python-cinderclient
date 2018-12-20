@@ -1,0 +1,28 @@
+From d25a9b6d2a5073cdfe4f5f6214c0fc3b96f77fc3 Mon Sep 17 00:00:00 2001
+From: Daniel Badea <daniel.badea@windriver.com>
+Date: Wed, 20 Dec 2017 20:46:23 +0000
+Subject: [PATCH 6/9] fix missing _find_volume_snapshot function
+
+---
+ cinderclient/v3/shell.py | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/cinderclient/v3/shell.py b/cinderclient/v3/shell.py
+index ba912c9..e542813 100644
+--- a/cinderclient/v3/shell.py
++++ b/cinderclient/v3/shell.py
+@@ -46,6 +46,11 @@ FILTER_DEPRECATED = ("This option is deprecated and will be removed in "
+                      "is introduced since 3.33 instead.")
+ 
+ 
++def _find_volume_snapshot(cs, snapshot):
++    """Gets a volume snapshot by name or ID."""
++    return utils.find_resource(cs.volume_snapshots, snapshot)
++
++
+ @api_versions.wraps('3.33')
+ @utils.arg('--resource',
+            metavar='<resource>',
+-- 
+2.7.4
+

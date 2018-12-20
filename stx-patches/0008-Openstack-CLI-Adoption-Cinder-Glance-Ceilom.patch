@@ -1,0 +1,120 @@
+From 7b016fb8e620dd832eb1e1ba8017d94ec8946d33 Mon Sep 17 00:00:00 2001
+From: Sen Yang <sen.yang@windriver.com>
+Date: Mon, 5 Feb 2018 14:25:18 -0500
+Subject: [PATCH 8/9] Openstack CLI Adoption: Cinder/Glance/Ceilometer
+
+    Openstackclient calls V2 cinderclient api to do volume
+    import/export. However, the cinderclient import/export
+    APIs only exists in V1 and V3. This commit ports these
+    APIs to V2 for consistency.
+---
+ cinderclient/v2/shell.py   | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ cinderclient/v2/volumes.py | 29 +++++++++++++++++++++++++++++
+ 2 files changed, 73 insertions(+)
+
+diff --git a/cinderclient/v2/shell.py b/cinderclient/v2/shell.py
+index 6301b7a..ad7dc0a 100644
+--- a/cinderclient/v2/shell.py
++++ b/cinderclient/v2/shell.py
+@@ -13,6 +13,13 @@
+ # implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
++#
++#  Copyright (c) 2013-2018 Wind River Systems, Inc.
++#
++#
++#
++#
++#
+ 
+ from __future__ import print_function
+ 
+@@ -2538,3 +2545,40 @@ def do_snapshot_manageable_list(cs, args):
+     if detailed:
+         columns.extend(['reason_not_safe', 'cinder_id', 'extra_info'])
+     utils.print_list(snapshots, columns, sortby_index=None)
++
++
++# WRS extensiion
++@utils.arg('volume',
++           metavar='<volume>',
++           help='Name or ID of the volume to export')
++def do_export(cs, args):
++    """Export volume to a file."""
++    volume = utils.find_volume(cs, args.volume)
++    updated_volume = volume.export()
++    utils.print_dict(updated_volume[1]['wrs-volume:os-volume_export'])
++
++
++# WRS extension
++@utils.arg('file_name',
++           metavar='<file-name>',
++           help='Name of the file to import')
++@utils.arg('--file_name',
++           help=argparse.SUPPRESS)
++def do_import(cs, args):
++    """Import a volume from a file."""
++
++    # Parse the volume ID from the filename which is in this format:
++    #   volume-<id>-<timestamp>.tgz
++    # For example:
++    #   volume-3a2cae29-850d-4445-b9ae-03865080b915-20140821-162819.tgz
++    if (args.file_name.find("volume-") != 0 or
++        args.file_name.rfind(".tgz") == -1 or
++            len(args.file_name) < 28):
++        raise exceptions.CommandError(
++            "Invalid filename - volume files must have the following format: "
++            "volume-<id>-<timestamp>.tgz")
++
++    volume_id = args.file_name[7:-20]
++    volume = utils.find_volume(cs, volume_id)
++    updated_volume = volume.import_volume(args.file_name)
++    utils.print_dict(updated_volume[1]['wrs-volume:os-volume_import'])
+diff --git a/cinderclient/v2/volumes.py b/cinderclient/v2/volumes.py
+index b4e950b..a2e013c 100644
+--- a/cinderclient/v2/volumes.py
++++ b/cinderclient/v2/volumes.py
+@@ -12,6 +12,13 @@
+ #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ #    License for the specific language governing permissions and limitations
+ #    under the License.
++#
++#  Copyright (c) 2013-2018 Wind River Systems, Inc.
++#
++#
++#
++#
++#
+ 
+ """Volume interface (v2 extension)."""
+ 
+@@ -648,3 +655,25 @@ class VolumeManager(base.ManagerWithFind):
+             query_string = "?detail=True"
+ 
+         return self._get('/scheduler-stats/get_pools%s' % query_string, None)
++
++    # WRS extension
++    def export(self, volume):
++        """
++        Export volume to a file.
++
++        :param volume: The :class:`Volume` to export.
++        """
++        return self._action('wrs-volume:os-volume_export',
++                            volume)
++
++    # WRS extension
++    def import_volume(self, volume, file_name):
++        """
++        Import volume from a file.
++
++        :param volume: The :class:`Volume` to import.
++        :param file_name: The file to import.
++        """
++        return self._action('wrs-volume:os-volume_import',
++                            volume,
++                            {'file_name': file_name})
+-- 
+2.7.4
+
