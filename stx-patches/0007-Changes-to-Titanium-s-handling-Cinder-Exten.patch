@@ -1,0 +1,165 @@
+From 298c679f30a9eabbf2dc8aad02e268f98b2c38cc Mon Sep 17 00:00:00 2001
+From: Jerry Sun <jerry.sun@windriver.com>
+Date: Fri, 26 Jan 2018 15:23:44 -0500
+Subject: [PATCH 7/9] Changes to Titanium's handling Cinder Extensions
+
+Added wrs-header to cinder client requests
+Cinder responds with wrs-fields only when wrs-header is present in requests
+---
+ cinderclient/client.py                  |  3 +++
+ cinderclient/tests/unit/test_http.py    | 12 ++++++++----
+ cinderclient/tests/unit/v1/test_auth.py |  6 +++++-
+ cinderclient/tests/unit/v2/test_auth.py |  6 +++++-
+ 4 files changed, 21 insertions(+), 6 deletions(-)
+
+diff --git a/cinderclient/client.py b/cinderclient/client.py
+index 6537cfe..ecb7375 100644
+--- a/cinderclient/client.py
++++ b/cinderclient/client.py
+@@ -162,6 +162,7 @@ class SessionClient(adapter.LegacyJsonAdapter):
+ 
+     def request(self, *args, **kwargs):
+         kwargs.setdefault('headers', kwargs.get('headers', {}))
++        kwargs['headers']['wrs-header'] = 'true'
+         api_versions.update_headers(kwargs["headers"], self.api_version)
+         kwargs.setdefault('authenticated', False)
+ 
+@@ -358,6 +359,7 @@ class HTTPClient(object):
+         kwargs.setdefault('headers', kwargs.get('headers', {}))
+         kwargs['headers']['User-Agent'] = self.USER_AGENT
+         kwargs['headers']['Accept'] = 'application/json'
++        kwargs['headers']['wrs-header'] = 'true'
+ 
+         if osprofiler_web:
+             kwargs['headers'].update(osprofiler_web.get_trace_id_headers())
+@@ -401,6 +403,7 @@ class HTTPClient(object):
+             if not self.management_url or not self.auth_token:
+                 self.authenticate()
+             kwargs.setdefault('headers', {})['X-Auth-Token'] = self.auth_token
++            kwargs['headers']['wrs-header'] = 'true'
+             if self.projectid:
+                 kwargs['headers']['X-Auth-Project-Id'] = self.projectid
+             try:
+diff --git a/cinderclient/tests/unit/test_http.py b/cinderclient/tests/unit/test_http.py
+index f74b9d0..407c3f4 100644
+--- a/cinderclient/tests/unit/test_http.py
++++ b/cinderclient/tests/unit/test_http.py
+@@ -105,7 +105,8 @@ class ClientTest(utils.TestCase):
+             headers = {"X-Auth-Token": "token",
+                        "X-Auth-Project-Id": "project_id",
+                        "User-Agent": cl.USER_AGENT,
+-                       'Accept': 'application/json', }
++                       'Accept': 'application/json',
++                       'wrs-header': 'true', }
+             mock_request.assert_called_with(
+                 "GET",
+                 "http://example.com/hi",
+@@ -128,7 +129,8 @@ class ClientTest(utils.TestCase):
+                        "X-Auth-Project-Id": "project_id",
+                        "X-OpenStack-Request-ID": global_id,
+                        "User-Agent": cl.USER_AGENT,
+-                       'Accept': 'application/json', }
++                       'Accept': 'application/json',
++                       'wrs-header': 'true', }
+             mock_request.assert_called_with(
+                 "GET",
+                 "http://example.com/hi",
+@@ -298,7 +300,8 @@ class ClientTest(utils.TestCase):
+                 "X-Auth-Project-Id": "project_id",
+                 "Content-Type": "application/json",
+                 'Accept': 'application/json',
+-                "User-Agent": cl.USER_AGENT
++                "User-Agent": cl.USER_AGENT,
++                'wrs-header': 'true',
+             }
+             mock_request.assert_called_with(
+                 "POST",
+@@ -336,7 +339,8 @@ class ClientTest(utils.TestCase):
+             headers = {
+                 "Content-Type": "application/json",
+                 'Accept': 'application/json',
+-                "User-Agent": cl.USER_AGENT
++                "User-Agent": cl.USER_AGENT,
++                'wrs-header': 'true',
+             }
+             data = {
+                 "auth": {
+diff --git a/cinderclient/tests/unit/v1/test_auth.py b/cinderclient/tests/unit/v1/test_auth.py
+index 7e5b901..288a632 100644
+--- a/cinderclient/tests/unit/v1/test_auth.py
++++ b/cinderclient/tests/unit/v1/test_auth.py
+@@ -60,6 +60,7 @@ class AuthenticateAgainstKeystoneTests(utils.TestCase):
+                 'User-Agent': cs.client.USER_AGENT,
+                 'Content-Type': 'application/json',
+                 'Accept': 'application/json',
++                'wrs-header': 'true',
+             }
+             body = {
+                 'auth': {
+@@ -133,6 +134,7 @@ class AuthenticateAgainstKeystoneTests(utils.TestCase):
+                 'User-Agent': cs.client.USER_AGENT,
+                 'Content-Type': 'application/json',
+                 'Accept': 'application/json',
++                'wrs-header': 'true',
+             }
+             body = {
+                 'auth': {
+@@ -235,6 +237,7 @@ class AuthenticateAgainstKeystoneTests(utils.TestCase):
+                 'User-Agent': cs.client.USER_AGENT,
+                 'Content-Type': 'application/json',
+                 'Accept': 'application/json',
++                'wrs-header': 'true',
+             }
+             body = {
+                 'auth': {
+@@ -286,7 +289,8 @@ class AuthenticationTests(utils.TestCase):
+                 'X-Auth-User': 'username',
+                 'X-Auth-Key': 'password',
+                 'X-Auth-Project-Id': 'project_id',
+-                'User-Agent': cs.client.USER_AGENT
++                'User-Agent': cs.client.USER_AGENT,
++                'wrs-header': 'true',
+             }
+             mock_request.assert_called_with(
+                 "GET",
+diff --git a/cinderclient/tests/unit/v2/test_auth.py b/cinderclient/tests/unit/v2/test_auth.py
+index 4caf2eb..2d05d78 100644
+--- a/cinderclient/tests/unit/v2/test_auth.py
++++ b/cinderclient/tests/unit/v2/test_auth.py
+@@ -63,6 +63,7 @@ class AuthenticateAgainstKeystoneTests(utils.TestCase):
+                 'User-Agent': cs.client.USER_AGENT,
+                 'Content-Type': 'application/json',
+                 'Accept': 'application/json',
++                'wrs-header': 'true',
+             }
+             body = {
+                 'auth': {
+@@ -136,6 +137,7 @@ class AuthenticateAgainstKeystoneTests(utils.TestCase):
+                 'User-Agent': cs.client.USER_AGENT,
+                 'Content-Type': 'application/json',
+                 'Accept': 'application/json',
++                'wrs-header': 'true',
+             }
+             body = {
+                 'auth': {
+@@ -238,6 +240,7 @@ class AuthenticateAgainstKeystoneTests(utils.TestCase):
+                 'User-Agent': cs.client.USER_AGENT,
+                 'Content-Type': 'application/json',
+                 'Accept': 'application/json',
++                'wrs-header': 'true',
+             }
+             body = {
+                 'auth': {
+@@ -289,7 +292,8 @@ class AuthenticationTests(utils.TestCase):
+                 'X-Auth-User': 'username',
+                 'X-Auth-Key': 'password',
+                 'X-Auth-Project-Id': 'project_id',
+-                'User-Agent': cs.client.USER_AGENT
++                'User-Agent': cs.client.USER_AGENT,
++                'wrs-header': 'true',
+             }
+             mock_request.assert_called_with(
+                 "GET",
+-- 
+2.7.4
+

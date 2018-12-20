@@ -1,0 +1,94 @@
+From fe517d11fcc1463154787806f5b2bb8e85b2f55e Mon Sep 17 00:00:00 2001
+From: Steve Noyes <steve.noyes@oracle.com>
+Date: Fri, 25 Aug 2017 14:23:18 -0400
+Subject: [PATCH 5/9] Fix attachment_id returned by create and show volume
+
+The attachment_ids in the volume info returned by show volume
+were incorrect. It was showing the volume_id, not the actual
+attachment_id. This fix changes the attachment_ids returned by show
+volume to correctly reflect the attachment_id.
+
+Also, added a unit test for this, and added an attachment_id
+to the fake volume so that other tests wouldn't now fail.
+
+Closes-Bug: #1713082
+Change-Id: I9ec36af5dd460d03d786aeeb3cc36a869c19ff62
+---
+ cinderclient/tests/unit/v2/fakes.py                  |  5 +++--
+ cinderclient/tests/unit/v2/test_shell.py             | 17 +++++++++++++++++
+ cinderclient/v2/shell.py                             |  2 +-
+ releasenotes/notes/bug-1713082-fb9276eed70f7e3b.yaml |  8 ++++++++
+ 4 files changed, 29 insertions(+), 3 deletions(-)
+ create mode 100644 releasenotes/notes/bug-1713082-fb9276eed70f7e3b.yaml
+
+diff --git a/cinderclient/tests/unit/v2/fakes.py b/cinderclient/tests/unit/v2/fakes.py
+index a4c5d39..3e24793 100644
+--- a/cinderclient/tests/unit/v2/fakes.py
++++ b/cinderclient/tests/unit/v2/fakes.py
+@@ -28,8 +28,9 @@ REQUEST_ID = 'req-test-request-id'
+ def _stub_volume(*args, **kwargs):
+     volume = {
+         "migration_status": None,
+-        "attachments": [{u'server_id': u'1234', u'id':
+-                         u'3f88836f-adde-4296-9f6b-2c59a0bcda9a'}],
++        "attachments": [{u'server_id': u'1234',
++                         u'id': u'3f88836f-adde-4296-9f6b-2c59a0bcda9a',
++                         u'attachment_id': u'5678'}],
+         "links": [
+             {
+                 "href": "http://localhost/v2/fake/volumes/1234",
+diff --git a/cinderclient/tests/unit/v2/test_shell.py b/cinderclient/tests/unit/v2/test_shell.py
+index 8886311..c06d3e2 100644
+--- a/cinderclient/tests/unit/v2/test_shell.py
++++ b/cinderclient/tests/unit/v2/test_shell.py
+@@ -1407,3 +1407,20 @@ class ShellTest(utils.TestCase):
+                          '--backup-gigabytes 1 '
+                          '--per-volume-gigabytes 1')
+         self.assert_called('PUT', '/os-quota-class-sets/test', body=expected)
++
++    def test_translate_attachments(self):
++        attachment_id = 'aaaa'
++        server_id = 'bbbb'
++        obj_id = 'cccc'
++        info = {
++            'attachments': [{
++                'attachment_id': attachment_id,
++                'id': obj_id,
++                'server_id': server_id}]
++            }
++
++        new_info = test_shell._translate_attachments(info)
++
++        self.assertEqual(attachment_id, new_info['attachment_ids'][0])
++        self.assertEqual(server_id, new_info['attached_servers'][0])
++        self.assertNotIn('id', new_info)
+diff --git a/cinderclient/v2/shell.py b/cinderclient/v2/shell.py
+index e1b757f..6301b7a 100644
+--- a/cinderclient/v2/shell.py
++++ b/cinderclient/v2/shell.py
+@@ -36,7 +36,7 @@ def _translate_attachments(info):
+     attachments = []
+     attached_servers = []
+     for attachment in info['attachments']:
+-        attachments.append(attachment['id'])
++        attachments.append(attachment['attachment_id'])
+         attached_servers.append(attachment['server_id'])
+     info.pop('attachments', None)
+     info['attachment_ids'] = attachments
+diff --git a/releasenotes/notes/bug-1713082-fb9276eed70f7e3b.yaml b/releasenotes/notes/bug-1713082-fb9276eed70f7e3b.yaml
+new file mode 100644
+index 0000000..e9527c3
+--- /dev/null
++++ b/releasenotes/notes/bug-1713082-fb9276eed70f7e3b.yaml
+@@ -0,0 +1,8 @@
++---
++fixes:
++  - |
++    The attachment_ids in the volume info returned by show volume were
++    incorrect. It was showing the volume_id, not the attachment_id. This fix
++    changes the attachment_ids returned by show volume to correctly reflect
++    the attachment_id.
++    [Bug `1713082 <https://bugs.launchpad.net/bugs/1713082>`_]
+-- 
+2.7.4
+

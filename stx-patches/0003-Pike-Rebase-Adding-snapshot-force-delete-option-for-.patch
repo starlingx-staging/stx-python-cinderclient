@@ -1,0 +1,154 @@
+From 7eb9388d89108d72a97b31c493644706885d3148 Mon Sep 17 00:00:00 2001
+From: Robert Church <robert.church@windriver.com>
+Date: Tue, 10 May 2016 23:54:15 -0500
+Subject: [PATCH 3/9] Pike Rebase: Adding snapshot-force-delete option for CLI.
+
+commit af412c38afb1d8306f08492b4dab67661b353264
+Author: Stefan Dinescu <stefan.dinescu@windriver.com>
+Date:   Thu Apr 14 16:36:46 2016 +0300
+
+    Swact in the middle of snapshot export causing snapshot to get stuck in exporting
+
+    Adding "cinder snapshot-force-delete" option for CLI.
+    The backend cinder code was already present and just need to be accessible
+    from the CLI.
+
+Related:
+ - Newton commits: (CGCS_DEV_0027) a38a884
+ - Mitaka commits: (CGCS_DEV_0019) 485359f
+                   (CGCS_DEV_0019_squash) 485359f
+
+(cherry picked from commit 485359f0fc7b3a81336e898f1f7e861248158981)
+Signed-off-by: Robert Church <robert.church@windriver.com>
+
+Conflicts:
+	cinderclient/v3/shell.py
+
+v2/v3 API refactored by upstream commit 603c615ae59a8b6c24811b39ad05f26228ef5868
+---
+ cinderclient/v1/shell.py            | 17 +++++++++++++++++
+ cinderclient/v1/volume_snapshots.py | 14 ++++++++++++++
+ cinderclient/v3/shell.py            | 17 +++++++++++++++++
+ cinderclient/v3/volume_snapshots.py | 11 +++++++++++
+ 4 files changed, 59 insertions(+)
+
+diff --git a/cinderclient/v1/shell.py b/cinderclient/v1/shell.py
+index 6c47dcb..470613c 100644
+--- a/cinderclient/v1/shell.py
++++ b/cinderclient/v1/shell.py
+@@ -530,6 +530,23 @@ def do_snapshot_delete(cs, args):
+                                       "snapshots.")
+ 
+ 
++@utils.arg('snapshot',
++           metavar='<snapshot>', nargs='+',
++           help='Name or ID of the snapshot(s) to force delete.')
++def do_snapshot_force_delete(cs, args):
++    """Remove one or more snapshots."""
++    failure_count = 0
++    for snapshot in args.snapshot:
++        try:
++            _find_volume_snapshot(cs, snapshot).force_delete()
++        except Exception as e:
++            failure_count += 1
++            print("Force delete for snapshot %s failed: %s" % (snapshot, e))
++    if failure_count == len(args.snapshot):
++        raise exceptions.CommandError("Unable to force delete any of the "
++                                      "specified snapshots.")
++
++
+ @utils.arg('snapshot', metavar='<snapshot>',
+            help='Name or ID of snapshot.')
+ @utils.arg('display_name', nargs='?', metavar='<display-name>',
+diff --git a/cinderclient/v1/volume_snapshots.py b/cinderclient/v1/volume_snapshots.py
+index 5c13aa1..59a6289 100644
+--- a/cinderclient/v1/volume_snapshots.py
++++ b/cinderclient/v1/volume_snapshots.py
+@@ -44,6 +44,12 @@ class Snapshot(base.Resource):
+         """
+         self.manager.delete(self)
+ 
++    def force_delete(self):
++        """
++        Force delete this snapshot ignoring its current state.
++        """
++        self.manager.force_delete(self)
++
+     def update(self, **kwargs):
+         """
+         Update the display_name or display_description for this snapshot.
+@@ -136,6 +142,14 @@ class SnapshotManager(base.ManagerWithFind):
+         """
+         self._delete("/snapshots/%s" % base.getid(snapshot))
+ 
++    def force_delete(self, snapshot):
++        """
++        Force delete a snapshot ignoring its current state.
++
++        :param snapshot: The :class:`Snapshot` to force delete.
++        """
++        return self._action('os-force_delete', base.getid(snapshot))
++
+     def update(self, snapshot, **kwargs):
+         """
+         Update the display_name or display_description for a snapshot.
+diff --git a/cinderclient/v3/shell.py b/cinderclient/v3/shell.py
+index 876546f..ba912c9 100644
+--- a/cinderclient/v3/shell.py
++++ b/cinderclient/v3/shell.py
+@@ -639,6 +639,23 @@ def do_summary(cs, args):
+     utils.print_dict(info['volume-summary'], formatters=formatters)
+ 
+ 
++@utils.arg('snapshot',
++           metavar='<snapshot>', nargs='+',
++           help='Name or ID of the snapshot(s) to force delete.')
++def do_snapshot_force_delete(cs, args):
++    """Remove one or more snapshots."""
++    failure_count = 0
++    for snapshot in args.snapshot:
++        try:
++            _find_volume_snapshot(cs, snapshot).force_delete()
++        except Exception as e:
++            failure_count += 1
++            print("Force delete for snapshot %s failed: %s" % (snapshot, e))
++    if failure_count == len(args.snapshot):
++        raise exceptions.CommandError("Unable to force delete any of the "
++                                      "specified snapshots.")
++
++
+ @api_versions.wraps('3.11')
+ def do_group_type_list(cs, args):
+     """Lists available 'group types'. (Admin only will see private types)"""
+diff --git a/cinderclient/v3/volume_snapshots.py b/cinderclient/v3/volume_snapshots.py
+index 999ec56..849c64e 100644
+--- a/cinderclient/v3/volume_snapshots.py
++++ b/cinderclient/v3/volume_snapshots.py
+@@ -37,6 +37,10 @@ class Snapshot(base.Resource):
+         """Delete this snapshot."""
+         return self.manager.delete(self, force)
+ 
++    def force_delete(self):
++        """Force delete this snapshot ignoring its current state."""
++        self.manager.force_delete(self)
++
+     def update(self, **kwargs):
+         """Update the name or description for this snapshot."""
+         return self.manager.update(self, **kwargs)
+@@ -147,6 +151,13 @@ class SnapshotManager(base.ManagerWithFind):
+         else:
+             return self._delete("/snapshots/%s" % base.getid(snapshot))
+ 
++    def force_delete(self, snapshot):
++        """Force delete a snapshot ignoring its current state.
++
++        :param snapshot: The :class:`Snapshot` to force delete.
++        """
++        return self._action('os-force_delete', base.getid(snapshot))
++
+     def update(self, snapshot, **kwargs):
+         """Update the name or description for a snapshot.
+ 
+-- 
+2.7.4
+
